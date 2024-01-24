@@ -4,32 +4,20 @@ from enum import Enum, auto
 import PIL.Image
 
 
-class InitMethod(Enum):
-    """Enumeration used to choose initialization method for instances of Image."""
-    FILE = auto()
-    RAW = auto()
-
-
 class Image:
     """This class stores images as numpy arrays."""
 
-    def __init__(self, filepath: str = None, raw_image: np.ndarray = None, method: InitMethod = InitMethod.FILE):
-        """Initialize a new instance of Image.
+    def __init__(self, raw_image):
+        """Initialize a new instance of Image by providing the raw data as a numpy array."""
+        self.raw = raw_image
 
-        There are two initialization methods:
-            - by file: set method = InitMethod.FILE and provide the file path using hte keyword argument filepath;
-            - by raw data: set method = InitMethod.RAW and provide the row image as a numpy array eiter in RGB form or
-            in greyscale.
+    @classmethod
+    def from_file(cls, file_path: str):
+        """Initialize a new instance of Image reading the data from a file.
 
-        Arguments:
-            - filepath: path to the file containing the image in any format compatible with the PIL library
-            - raw_image: numpy array containing the image in RGB or greyscale format
-            - method: initialization method provided using the InitMethod Enum
+        The image is decoded using PIL.Image.open and then converted to a numpy array.
         """
-        if method == InitMethod.FILE:
-            self.raw = np.asarray(PIL.Image.open(filepath))
-        elif method == InitMethod.RAW:
-            self.raw = raw_image
+        return cls(np.asarray(PIL.Image.open(file_path)))
 
     def as_PIL_Image(self):
         """Return the image as a PIL Image."""

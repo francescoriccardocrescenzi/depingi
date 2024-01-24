@@ -10,7 +10,7 @@ from depingi import Image
 # bw_image = Image.fromarray(raw_bw_image)
 # bw_image.show()
 
-im = Image(filepath="data/plants.jpg")
+im = Image.from_file("data/plants.jpg")
 PILim = im.as_PIL_Image()
 PILim.show()
 
