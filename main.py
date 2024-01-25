@@ -1,13 +1,17 @@
 from depingi import LuminanceImage, RGBImage
 import numpy as np
 
-weights = np.array([1, 0, 0])
+col_im = RGBImage.from_file("data/plants.jpg")
+gs_image = col_im.luminosity_desaturated()
+gs_image.as_PILImage().show()
 
-RGBim = RGBImage.from_file("data/plants.jpg")
-Lim1 = RGBim.as_LuminanceImage()
-Lim2 = RGBim.as_LuminanceImage(weights)
-Lim1.as_PILImage().show()
-Lim2.as_PILImage().show()
+gs_image.apply_contrast_stretching()
+gs_image.apply_contrast_stretching()
+gs_image.apply_contrast_stretching()
+gs_image.apply_contrast_stretching()
+gs_image.apply_contrast_stretching()
+gs_image.as_PILImage().show()
+
 
 
 
