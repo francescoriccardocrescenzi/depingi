@@ -26,6 +26,19 @@ class Image(ABC):
         """Return the image as a PIL Image."""
         pass
 
+    def histogram_bin_number(self) -> int:
+        """Helper method which provides the number of bins of the histogram of the image.
+
+        The default bin number is set to sqrt(npix), where npix is the number of pixels of the image.
+        """
+        npix = self.raw.shape[0]*self.raw.shape[1]
+        return int(np.sqrt(npix))
+
+    @abstractmethod
+    def histogram(self, bin_number: int = None) -> np.ndarray:
+        """Return the histogram of the image."""
+        pass
+
 
 class LuminanceImage(Image):
     """Subclass of Image that handles luminance images."""
@@ -33,6 +46,16 @@ class LuminanceImage(Image):
     def as_PILImage(self):
         """Return the image as a PIL Image."""
         return PIL.Image.fromarray(self.raw, mode="L")
+
+    def histogram(self, bin_number: int = None):
+        """Provide the intensity histogram of the picture.
+
+        The output of numpy.histogram is returned as it.
+        """
+        if bin_number is None:
+            bin_number = self.histogram_bin_number()
+        range = (np.iinfo(np.uint8).min, np.iinfo(np.uint8).max)
+        return np.histogram(self.raw, bins=bin_number, range=range)
 
     # TODO: Take min_val and max_val from a statistical distribution to reduce the likelihood of the method faliing.
     # TODO: Account for possible zero division when min_val and max_val are equal.
@@ -49,9 +72,20 @@ class LuminanceImage(Image):
         self.raw = stretched_raw
 
 
-
 class RGBImage(Image):
     """Subclass of Image that handles RGB images."""
+
+    def red_component(self):
+        """Return red component of self.raw."""
+        return self.raw[:, :, 0]
+
+    def green_component(self):
+        """Return green component of self.raw."""
+        return self.raw[:, :, 1]
+
+    def blue_component(self):
+        """Return blue component of self.raw."""
+        return self.raw[:, :, 2]
 
     def as_PILImage(self):
         """Return the image as a PIL Image."""
@@ -86,4 +120,19 @@ class RGBImage(Image):
         float_raw_luminance_image = (np.amax(self.raw, axis=2) + np.amin(self.raw, axis=2))//2
         uint8_raw_luminance_image = float_raw_luminance_image.astype(np.uint8)
         return LuminanceImage(uint8_raw_luminance_image)
+
+    # TODO: Test this method.
+    # TODO: Write methods to get the histograms associated with the RGB channels separately.
+    def histogram(self, bin_number: int = None):
+        """Provide the 3-dimensional color histogram of the picture.
+
+        The output of numpy.histogramdd is returned as is.
+        """
+        if bin_number is None:
+            bin_number = self.histogram_bin_number()
+        range = (np.iinfo(np.uint8).min, np.iinfo(np.uint8).max)
+        # Create a new array each row of which represents one pixel in RGB coordinates. This is necessary because
+        # np.histogramdd only accepts data in this form.
+        pixels = self.raw.reshape(-1, self.raw.shape[-1])
+        return np.histogramdd(pixels, bins=bin_number, range=range)
 
