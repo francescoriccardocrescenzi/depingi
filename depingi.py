@@ -1,12 +1,29 @@
 """A handy Python module for image processing."""
 import numpy as np
-from enum import Enum, auto
 import PIL.Image
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 
 
-class Image(ABC):
+class ImageHistogram:
+    """Helper class used to store and display the histograms for Image instances."""
+    pass
+
+
+class LuminanceImageHistogram(ImageHistogram):
+    """Helper class used to store and display the histograms for LuminanceImage instances."""
+
+    def __init__(self, values, bins):
+        """Initialize a new instance of LuminanceImageHistogram using the output of the numpy histogram function."""
+        self.values = values
+        self.bins = bins
+
+
+class Image:
     """This class stores images as numpy arrays."""
+
+    # Alias the uint8 maximum and minimum values for increased legibility.
+    uint8max = np.iinfo(np.uint8).max
+    uint8min = np.iinfo(np.uint8).min
 
     def __init__(self, raw_image):
         """Initialize a new instance of Image by providing the raw data as a numpy array."""
@@ -21,11 +38,6 @@ class Image(ABC):
         raw_data = np.asarray(PIL.Image.open(file_path))
         return cls(raw_data)
 
-    @abstractmethod
-    def as_PILImage(self):
-        """Return the image as a PIL Image."""
-        pass
-
     def histogram_bin_number(self) -> int:
         """Helper method which provides the number of bins of the histogram of the image.
 
@@ -34,11 +46,13 @@ class Image(ABC):
         npix = self.raw.shape[0]*self.raw.shape[1]
         return int(np.sqrt(npix))
 
-    @abstractmethod
-    def histogram(self, bin_number: int = None) -> np.ndarray:
-        """Return the histogram of the image."""
-        pass
+    def show(self):
+        """Convert the image to a PIL Image and display it on the screen."""
+        self.as_PILImage().show()
 
+    @abstractmethod
+    def as_PilImage(self):
+        pass
 
 class LuminanceImage(Image):
     """Subclass of Image that handles luminance images."""
@@ -47,29 +61,38 @@ class LuminanceImage(Image):
         """Return the image as a PIL Image."""
         return PIL.Image.fromarray(self.raw, mode="L")
 
-    def histogram(self, bin_number: int = None):
-        """Provide the intensity histogram of the picture.
-
-        The output of numpy.histogram is returned as it.
-        """
+    def histogram(self, bin_number: int = None) -> LuminanceImageHistogram:
+        """Provide the intensity histogram of the picture."""
         if bin_number is None:
             bin_number = self.histogram_bin_number()
-        range = (np.iinfo(np.uint8).min, np.iinfo(np.uint8).max)
-        return np.histogram(self.raw, bins=bin_number, range=range)
+            values, bins = np.histogram(self.raw, bins=bin_number, range=(self.uint8min, self.uint8max))
+        return LuminanceImageHistogram(values, bins)
 
-    # TODO: Take min_val and max_val from a statistical distribution to reduce the likelihood of the method faliing.
-    # TODO: Account for possible zero division when min_val and max_val are equal.
-    def apply_contrast_stretching(self):
+    def apply_contrast_stretching(self, lower_percentile_rank: int = 1, upper_percentile_rank: int = 99) -> "LuminanceImage":
         """
-        Increase the contrast of the image by applying contrast stretching.
+        Create a new LuminanceImage by applying contrast stretching.
 
         Apply to each pixel the following mathematical formula:
-        P_new = ((P_old - min_val)/(max_val - min_val))*255.
+        P_new = ((P_old - lower_percentile)/(upper_percentile - lower_percentile))*255.
+        If lower_percentile == upper_percentile, the formula cannot be applied as the image is a solid shade;
+        thus, a copy of the image is created without applying any transformation.
+
+        Arguments:
+            -- lower_percentile_rank: percentile_rank of the lower percentile in the formula above
+            -- upper_percentile_rank: percentile rank of the upper percentile in the formula above
+        Both arguments should be integers between 1 and 99.
         """
-        max_val = self.raw.max()
-        min_val = self.raw.min()
-        stretched_raw = ((self.raw-min_val)/(max_val-min_val)*np.iinfo(np.uint8).max).astype(np.uint8)
-        self.raw = stretched_raw
+        lower_percentile = np.percentile(self.raw, lower_percentile_rank)
+        upper_percentile = np.percentile(self.raw, upper_percentile_rank)
+        if upper_percentile > lower_percentile:
+            new_raw = ((self.raw - lower_percentile) / (upper_percentile - lower_percentile) * self.uint8max)
+            # After the transformation is applied, clip new_raw in place to the max and min values of uint8.
+            np.clip(new_raw, np.iinfo(np.uint8).min, np.iinfo(np.uint8).max, out=new_raw)
+            # New raw has been created as a float array but needs to be converted to uint8.
+            new_raw = new_raw.astype(np.uint8)
+            return LuminanceImage(new_raw)
+        else:
+            return LuminanceImage(self.raw)
 
 
 class RGBImage(Image):
@@ -128,11 +151,5 @@ class RGBImage(Image):
 
         The output of numpy.histogramdd is returned as is.
         """
-        if bin_number is None:
-            bin_number = self.histogram_bin_number()
-        range = (np.iinfo(np.uint8).min, np.iinfo(np.uint8).max)
-        # Create a new array each row of which represents one pixel in RGB coordinates. This is necessary because
-        # np.histogramdd only accepts data in this form.
-        pixels = self.raw.reshape(-1, self.raw.shape[-1])
-        return np.histogramdd(pixels, bins=bin_number, range=range)
+        pass
 
