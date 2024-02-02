@@ -167,3 +167,4 @@ cython_debug/
 /.idea/inspectionProfiles/profiles_settings.xml
 /.idea/vcs.xml
 /DOUBTS.md
+/depingi_old.py
