@@ -1,6 +1,50 @@
 """A handy Python module for image processing."""
 import numpy as np
+from abc import abstractmethod
 
+
+# IMAGE HISTOGRAMS
+
+class ImageHistogram:
+    """Class used to store and display the histograms for Image instances."""
+    pass
+
+
+class LImageHistogram(ImageHistogram):
+    """Helper class used to store and display the histograms for LImage instances."""
+
+    def __init__(self, values: np.ndarray, bins: np.ndarray):
+        """Initialize a new instance of LImageHistogram.
+
+        Arguments:
+            - values: histogram values
+            - bins: histogram bins
+        """
+        self.values = values
+        self.bins = bins
+
+
+class RGBImageHistogram(ImageHistogram):
+    """Helper class used to store and display the histograms for RGBImage instances."""
+
+    def __init__(self, values: list, bins: list):
+        """Initialize a new instance of RGImageHistogram.
+
+        Arguments:
+            - values: list of histogram values.
+                values[0] -> values associated with red component
+                values[1] -> values associated with green component
+                values[2] -> values associated with blue component
+            - bins: list of histogram bins edges.
+                bins[0] -> bins associated with red component
+                bins[1] -> bins associated with green component
+                bins[2] -> bins associated with blue component
+        """
+        self.values = values
+        self.bins = bins
+
+
+# IMAGES
 
 class Image:
     """Class used to open and process images.
@@ -12,8 +56,8 @@ class Image:
     # CONSTANTS
 
     # Alias the uint8 maximum and minimum values for increased legibility.
-    UINT8MAX = np.iinfo(np.uint8).max
-    UINT8MIN = np.iinfo(np.uint8).min
+    _UINT8MAX = np.iinfo(np.uint8).max
+    _UINT8MIN = np.iinfo(np.uint8).min
 
     # INITIALIZATION
 
@@ -37,7 +81,7 @@ class Image:
         raise a type error.
         """
         if np.issubdtype(raw_data.dtype, np.integer):
-            raw_data = raw_data.astype(np.float32)/self.UINT8MAX
+            raw_data = raw_data.astype(np.float32)/self._UINT8MAX
         elif np.issubdtype(raw_data.dtype, np.floating):
             pass
         else:
@@ -46,9 +90,31 @@ class Image:
         self._raw = raw_data
 
     @property
-    def raw_as_uint8(self):
+    def raw_as_uint8(self) -> np.ndarray:
         """Return self.raw as a uint8 array whose values are comprised between 0 and 255."""
-        return (self.raw*self.UINT8MAX).astype(np.uint8)
+        return (self.raw*self._UINT8MAX).astype(np.uint8)
+
+    # HISTOGRAM
+
+    @property
+    def _histogram_bin_number(self) -> int:
+        """Helper method intended for internal used only.
+
+        This method provides the number of bins of the histogram of the image.
+        The default bin number is set to sqrt(n_pix), where npix is the number of pixels of the image.
+        """
+        n_pix = self.raw.shape[0] * self.raw.shape[1]
+        return int(np.sqrt(n_pix))
+
+    @abstractmethod
+    def histogram(self, bin_number: int = None) -> ImageHistogram:
+        """Returns the histogram of the image.
+
+        Arguments:
+            - bin_number: the number of bins that the histogram will have; if set to None,
+                sqrt(self.raw.shape[0]*self.raw.shape[1]) will be used instead.
+        """
+        pass
 
 
 class LImage(Image):
@@ -56,7 +122,14 @@ class LImage(Image):
 
     The images are stored as 2d numpy arrays and the luminance of each pixel is represented as a float 0 < lum < 1.
     """
-    pass
+
+    # HISTOGRAM
+
+    def histogram(self, bin_number: int = None) -> LImageHistogram:
+        if bin_number is None:
+            bin_number = self._histogram_bin_number
+        values, bins = np.histogram(self.raw, bins=bin_number, range=(0, 1))
+        return LImageHistogram(values, bins)
 
 
 class RGBImage(Image):
@@ -94,5 +167,21 @@ class RGBImage(Image):
         """
         desaturated_raw = (np.amax(self.raw, axis=2) + np.amin(self.raw, axis=2)) / 2
         return LImage(desaturated_raw)
+
+    # HISTOGRAM
+
+    def histogram(self, bin_number: int = None) -> RGBImageHistogram:
+        if bin_number is None:
+            bin_number = self._histogram_bin_number
+        values = []
+        bins = []
+        # Generate the red, green and blue histograms.
+        # values[0] = red values, values[1] = green values, values[2] = blue values
+        # bins[0] = red values, bins[1] = green values, bins[2] = blue values
+        for i in range(3):
+            v, b = np.histogram(self.raw[:, :, i], bins=bin_number, range=(0, 1))
+            values.append(v)
+            bins.append(b)
+        return RGBImageHistogram(values, bins)
 
 

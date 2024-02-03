@@ -3,6 +3,7 @@ import unittest as ut
 import depingi as dp
 import numpy as np
 import PIL.Image
+import matplotlib.pyplot as plt
 
 
 def open_image(file_path):
@@ -11,12 +12,38 @@ def open_image(file_path):
 
 
 def rgb_pil_image(raw_data):
-    """Create PIL image from raw data."""
+    """Create PIL image from raw RGB data."""
     return PIL.Image.fromarray(raw_data)
 
+
 def l_pil_image(raw_data):
-    """Create PIL image from raw data."""
+    """Create PIL image from raw luminance data."""
     return PIL.Image.fromarray(raw_data, mode="L")
+
+
+def plot_l_histograms(hists):
+    """Plot a list of LImageHistogram instances."""
+    fig, axes = plt.subplots(len(hists))
+    # The default behavior of subplots is to only create a list of axes if len(hists) > 1.
+    # If len(hists) == 1, encapsulate it into a list not to break the for loop below.
+    if len(hists) == 1:
+        axes = [axes]
+    for i, hist in enumerate(hists):
+        axes[i].bar(hist.bins[:-1], hist.values, width=np.diff(hist.bins), edgecolor="black")
+
+
+def plot_rgb_histograms(hists):
+    """Plot a list of RGBHistogram instances."""
+    fig, axes = plt.subplots(len(hists))
+    # The default behavior of subplots is to only create a list of axes if len(hists) > 1.
+    # If len(hists) == 1, encapsulate it into a list not to break the for loop below.
+    if len(hists) == 1:
+        axes = [axes]
+    for i, hist in enumerate(hists):
+        axes[i].bar(hist.bins[0][:-1], hist.values[0], width=np.diff(hist.bins[0]), edgecolor="red")
+        axes[i].bar(hist.bins[1][:-1], hist.values[1], width=np.diff(hist.bins[1]), edgecolor="green")
+        axes[i].bar(hist.bins[2][:-1], hist.values[2], width=np.diff(hist.bins[2]), edgecolor="blue")
+
 
 
 class TestImage(ut.TestCase):
@@ -51,6 +78,27 @@ class TestRGBImage(ut.TestCase):
         # pil_im2.show()
         # pil_im3.show()
         # pil_im4.show()
+
+    def test_histogram(self):
+        file_path = "data/plants.jpg"
+        raw = open_image(file_path)
+        im = dp.RGBImage(raw)
+        hist = im.histogram()
+        # plot_rgb_histograms([hist])
+        # plt.show()
+
+
+class TestLImage(ut.TestCase):
+    """Test RGBImage class."""
+
+    def test_histogram(self):
+        file_path = "data/plants.jpg"
+        raw = open_image(file_path)
+        rgb_im = dp.RGBImage(raw)
+        l_im = rgb_im.weighted_average_desaturated()
+        hist = l_im.histogram()
+        # plot_l_histograms([hist])
+        # plt.show()
 
 
 if __name__ == "__main__":
