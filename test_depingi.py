@@ -138,6 +138,15 @@ class TestLImage(ut.TestCase):
         pil_im = l_pil_image(image_sum.raw_as_uint8)
         # pil_im.show()
 
+    def test_binary_image(self):
+        """Take the binary image of an LImage."""
+        file_path = "data/plants.jpg"
+        raw = open_image(file_path)
+        rgb_im = dp.RGBImage(raw)
+        l_im = rgb_im.weighted_average_desaturated()
+        bin_im = l_im.binary_image(.8)
+        pil_im = l_pil_image(bin_im.raw_as_uint8)
+        pil_im.show()
 
 
 

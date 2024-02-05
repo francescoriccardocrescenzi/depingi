@@ -155,6 +155,23 @@ class LImage(Image):
         values, bins = np.histogram(self.raw, bins=bin_number, range=(0, 1))
         return LImageHistogram(values, bins)
 
+    # THRESHOLDING
+
+    def binary_image(self, t: float) -> "LImage":
+        """Return the binary image associated with the threshold t.
+
+        new_P = 0 if old_P < t
+        new_P = 1 if old_p >= t
+
+        Arguments:
+            - t: float in the interval [0,1].
+        """
+        binary_raw = (self.raw >= t).astype(np.float32)
+        return LImage(binary_raw)
+
+
+
+
 
 class RGBImage(Image):
     """Subclass of Image to open and process RGB images.
