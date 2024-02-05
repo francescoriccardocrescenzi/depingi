@@ -45,7 +45,6 @@ def plot_rgb_histograms(hists):
         axes[i].bar(hist.bins[2][:-1], hist.values[2], width=np.diff(hist.bins[2]), edgecolor="blue")
 
 
-
 class TestImage(ut.TestCase):
     """Test Image class."""
 
@@ -87,11 +86,36 @@ class TestRGBImage(ut.TestCase):
         # plot_rgb_histograms([hist])
         # plt.show()
 
+    def test_alpha_sum(self):
+        """Take the alpha sum of two RGBImage instances."""
+        path1 = "data/car.jpg"
+        path2 = "data/plants.jpg"
+        raw1 = open_image(path1)
+        raw2 = open_image(path2)
+        im1 = dp.RGBImage(raw1)
+        im2 = dp.RGBImage(raw2)
+        height = min(im1.raw.shape[0], im2.raw.shape[0])
+        width = min(im1.raw.shape[1], im2.raw.shape[1])
+        image_sum = dp.Image.alpha_sum(im1[:height, :width], im2[:height, :width], 0.9)
+        pil_im = rgb_pil_image(image_sum.raw_as_uint8)
+        # pil_im.show()
+
+    def test_slicing(self):
+        """Slice an RGBImage."""
+        path = "data/car.jpg"
+        raw = open_image(path)
+        im = dp.RGBImage(raw)
+        im = im[:im.raw.shape[0]//2, :im.raw.shape[1]//2]
+        pil_im = rgb_pil_image(im.raw_as_uint8)
+        # pil_im.show()
+
+
 
 class TestLImage(ut.TestCase):
     """Test RGBImage class."""
 
     def test_histogram(self):
+        """Plot the histogram of an LImage."""
         file_path = "data/plants.jpg"
         raw = open_image(file_path)
         rgb_im = dp.RGBImage(raw)
@@ -99,6 +123,22 @@ class TestLImage(ut.TestCase):
         hist = l_im.histogram()
         # plot_l_histograms([hist])
         # plt.show()
+
+    def test_alpha_sum(self):
+        """Take the alpha sum of two LImages."""
+        path1 = "data/car.jpg"
+        path2 = "data/plants.jpg"
+        raw1 = open_image(path1)
+        raw2 = open_image(path2)
+        im1 = dp.RGBImage(raw1).lightness_desaturated()
+        im2 = dp.RGBImage(raw2).lightness_desaturated()
+        height = min(im1.raw.shape[0], im2.raw.shape[0])
+        width = min(im1.raw.shape[1], im2.raw.shape[1])
+        image_sum = dp.Image.alpha_sum(im1[:height, :width], im2[:height, :width], 0.1)
+        pil_im = l_pil_image(image_sum.raw_as_uint8)
+        # pil_im.show()
+
+
 
 
 if __name__ == "__main__":

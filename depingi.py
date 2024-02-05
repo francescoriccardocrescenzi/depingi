@@ -116,6 +116,30 @@ class Image:
         """
         pass
 
+    # IMAGE ARITHMETICS
+
+    @classmethod
+    def alpha_sum(cls, image1: "Image", image2: "Image", alpha: float) -> "Image":
+        """Return the alpha sum of the two images according to the formula new_raw = alpha*raw1 + (1-alpha)*raw2.
+        Arguments:
+            - image1 and image2 are supposed to be Image instances of the same subclass,
+                and they are supposed to have the same size.
+            - alpha: float in the interval [0,1].
+        Returns:
+            - an Image of the same subclass of image1 and image2
+        """
+        new_raw = alpha*image1.raw + (1-alpha)*image2.raw
+        return cls(new_raw)
+
+    # SLICING
+
+    def __getitem__(self, item):
+        """An image is sliced by slicing its raw data according to numpy conventions.
+
+        Eg: if im is an image of subclass LImage, im[item] == LImage(im.raw[item]).
+        """
+        return type(self)(self.raw[item])
+
 
 class LImage(Image):
     """Subclass of Image to open and process luminance images.
