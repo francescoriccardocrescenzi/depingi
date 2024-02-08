@@ -170,6 +170,25 @@ class Image:
         np.clip(new_raw, 0, 1, out=new_raw)
         return new_raw
 
+    # HISTOGRAM EQUALIZATION
+
+    @classmethod
+    def _equalize_histogram_of_raw_luminance_image(cls, raw: np.ndarray, bin_number: int) -> np.ndarray:
+        """Helper method meant for internal use only.
+
+        Return a new raw luminance histogram with constant histogram.
+
+        Arguments:
+            - bin_number: number of bins used to compute the histogram.
+        """
+        # Take the histogram of raw, compute its cdf, normalize it and interpolate
+        # the new raw from the normalized cdf.
+        hist, bins = np.histogram(raw, bins=bin_number, range=(0, 1))
+        cdf = hist.cumsum()
+        new_cdf = (cdf - cdf.min()) / (cdf.max() - cdf.min())
+        new_raw = np.interp(raw, bins[:-1], new_cdf)
+        return new_raw
+
 
 class LImage(Image):
     """Subclass of Image to open and process luminance images.
@@ -218,6 +237,19 @@ class LImage(Image):
         return LImage(Image._apply_contrast_stretching_to_raw_luminance_image(self.raw,
                                                                               lower_percentile_rank,
                                                                               upper_percentile_rank))
+
+    # HISTOGRAM EQUALIZATION
+
+    def equalize_histogram(self, bin_number: int = None):
+        """Return a new LImage with an equalized histogram.
+
+        Arguments:
+            - bin_number: number of bins used to compute the histogram for the equalization; if no
+                bin_number is inserted, the square root of the number of pixels of the image is used.
+        """
+        if bin_number is None:
+            bin_number = self._histogram_bin_number
+        return LImage(self._equalize_histogram_of_raw_luminance_image(self.raw, bin_number))
 
 
 class RGBImage(Image):
@@ -295,6 +327,24 @@ class RGBImage(Image):
             self._apply_contrast_stretching_to_raw_luminance_image(self.raw[:, :, i],
                                                                    lower_percentile_rank,
                                                                    upper_percentile_rank)
+            for i in range(3)
+        ]
+        new_raw = np.stack(components, axis=2)
+        return RGBImage(new_raw)
+
+    # HISTOGRAM EQUALIZATION
+
+    def equalize_histogram(self, bin_number: int = None):
+        """Return a new RGBImage with an equalized histogram (across all channels).
+
+        Arguments:
+            - bin_number: number of bins used to compute the histogram for the equalization; if no
+                bin_number is inserted, the square root of the number of pixels of the image is used.
+        """
+        if bin_number is None:
+            bin_number = self._histogram_bin_number
+        components = [
+            self._equalize_histogram_of_raw_luminance_image(self.raw[:, :, i], bin_number)
             for i in range(3)
         ]
         new_raw = np.stack(components, axis=2)
