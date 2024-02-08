@@ -81,7 +81,7 @@ class Image:
         raise a type error.
         """
         if np.issubdtype(raw_data.dtype, np.integer):
-            raw_data = raw_data.astype(np.float32)/self._UINT8MAX
+            raw_data = raw_data.astype(np.float32) / self._UINT8MAX
         elif np.issubdtype(raw_data.dtype, np.floating):
             pass
         else:
@@ -92,7 +92,7 @@ class Image:
     @property
     def raw_as_uint8(self) -> np.ndarray:
         """Return self.raw as a uint8 array whose values are comprised between 0 and 255."""
-        return (self.raw*self._UINT8MAX).astype(np.uint8)
+        return (self.raw * self._UINT8MAX).astype(np.uint8)
 
     # HISTOGRAM
 
@@ -128,7 +128,7 @@ class Image:
         Returns:
             - an Image of the same subclass of image1 and image2
         """
-        new_raw = alpha*image1.raw + (1-alpha)*image2.raw
+        new_raw = alpha * image1.raw + (1 - alpha) * image2.raw
         return cls(new_raw)
 
     # SLICING
@@ -139,6 +139,36 @@ class Image:
         Eg: if im is an image of subclass LImage, im[item] == LImage(im.raw[item]).
         """
         return type(self)(self.raw[item])
+
+    # CONTRAST STRETCHING
+
+    @classmethod
+    def _apply_contrast_stretching_to_raw_luminance_image(cls, raw: np.ndarray,
+                                                          lower_percentile_rank: int,
+                                                          upper_percentile_rank: int) -> np.ndarray:
+        """Helper method intended for internal use only.
+
+        The method applies contrast stretching to a raw luminance image encoded as a numpy float array.
+        If lower_percentile < upper percentile, the following formula is applied to each pixel:
+        P_new = (P_old - lower_percentile)/(upper_percentile - lower_percentile).
+        If lower_percentile >= upper percentile, the raw image is returned without change.
+
+        Arguments:
+            - raw: the raw image on which to apply contrast stretching
+            - lower_percentile_rank: percentile_rank of the lower percentile in the formula above
+            - upper_percentile_rank: percentile rank of the upper percentile in the formula above
+        Both percentile ranks should be integers between 1 and 99.
+        """
+        lower_percentile = np.percentile(raw, lower_percentile_rank)
+        upper_percentile = np.percentile(raw, upper_percentile_rank)
+        if lower_percentile < upper_percentile:
+            new_raw = (raw - lower_percentile) / (upper_percentile - lower_percentile)
+        else:
+            new_raw = raw
+        # Since we are using percentiles in place of maximum and minimum intensity, we need to clip the new raw image
+        # before returning it.
+        np.clip(new_raw, 0, 1, out=new_raw)
+        return new_raw
 
 
 class LImage(Image):
@@ -169,14 +199,31 @@ class LImage(Image):
         binary_raw = (self.raw >= t).astype(np.float32)
         return LImage(binary_raw)
 
+    # CONTRAST STRETCHING
 
+    def apply_contrast_stretching(self, lower_percentile_rank: int = 1, upper_percentile_rank: int = 99) \
+            -> "LImage":
+        """
+        Create a new LImage by applying contrast stretching.
 
+        If lower_percentile < upper percentile, the following formula is applied to each pixel:
+        P_new = (P_old - lower_percentile)/(upper_percentile - lower_percentile).
+        If lower_percentile >= upper percentile, the raw image is returned without change.
+
+        Arguments:
+            -- lower_percentile_rank: percentile_rank of the lower percentile in the formula above
+            -- upper_percentile_rank: percentile rank of the upper percentile in the formula above
+        Both percentiles should be integers between 1 and 99.
+        """
+        return LImage(Image._apply_contrast_stretching_to_raw_luminance_image(self.raw,
+                                                                              lower_percentile_rank,
+                                                                              upper_percentile_rank))
 
 
 class RGBImage(Image):
     """Subclass of Image to open and process RGB images.
 
-    The images are stored as 3d numpy arrays.
+    The images are stored as 3d nxmx3 numpy arrays.
     """
 
     # DESATURATION
@@ -190,8 +237,7 @@ class RGBImage(Image):
         Arguments:
             - weight: array in the form [wr, wg, wb], where wr, wg, wb are the weights used for the average.
         """
-        # We use a tensor product to take the weighted average.
-        desaturated_raw = np.tensordot(self.raw, weights, axes=(2, 0))
+        desaturated_raw = sum([weights[i] * self.raw[:, :, i] for i in range(3)])
         return LImage(desaturated_raw)
 
     def luminosity_desaturated(self) -> LImage:
@@ -225,4 +271,31 @@ class RGBImage(Image):
             bins.append(b)
         return RGBImageHistogram(values, bins)
 
+    # CONTRAST STRETCHING
 
+    def apply_contrast_stretching(self, lower_percentile_rank: int = 1, upper_percentile_rank: int = 99) \
+            -> "RGBImage":
+        """
+        Create a new RGBImage by applying contrast stretching.
+
+        Apply to each channel of each pixel the following mathematical formula:
+        P_new = ((P_old - lower_percentile)/(upper_percentile - lower_percentile))*255.
+        The percentile ranks are the same for each channel but the actual percentiles depend on the specific channel.
+        If lower_percentile >= upper_percentile for some channel, the formula is not applied to that channel
+        and thus such channel is left unchanged.
+
+        Arguments:
+            -- lower_percentile_rank: percentile_rank of the lower percentile in the formula above
+            -- upper_percentile_rank: percentile rank of the upper percentile in the formula above
+        Both percentile ranks should be integers between 1 and 99.
+        """
+        # Apply the transformation to each channel using a helper method and stack the channels together to obtain a
+        # well-formatted new raw image.
+        components = [
+            self._apply_contrast_stretching_to_raw_luminance_image(self.raw[:, :, i],
+                                                                   lower_percentile_rank,
+                                                                   upper_percentile_rank)
+            for i in range(3)
+        ]
+        new_raw = np.stack(components, axis=2)
+        return RGBImage(new_raw)

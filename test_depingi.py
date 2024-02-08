@@ -109,6 +109,16 @@ class TestRGBImage(ut.TestCase):
         pil_im = rgb_pil_image(im.raw_as_uint8)
         # pil_im.show()
 
+    def test_contrast_stretching(self):
+        """Apply contrast stretching to an RGBImage."""
+        file_path = "data/car.jpg"
+        raw = open_image(file_path)
+        rgb_im1 = dp.RGBImage(raw)
+        rgb_im2 = rgb_im1.apply_contrast_stretching(15, 75)
+        pil_im1 = rgb_pil_image(rgb_im1.raw_as_uint8)
+        pil_im2 = rgb_pil_image(rgb_im2.raw_as_uint8)
+        pil_im1.show()
+        pil_im2.show()
 
 
 class TestLImage(ut.TestCase):
@@ -146,8 +156,19 @@ class TestLImage(ut.TestCase):
         l_im = rgb_im.weighted_average_desaturated()
         bin_im = l_im.binary_image(.8)
         pil_im = l_pil_image(bin_im.raw_as_uint8)
-        pil_im.show()
+        # pil_im.show()
 
+    def test_contrast_stretching(self):
+        """Apply contrast stretching to an LImage."""
+        file_path = "data/plants.jpg"
+        raw = open_image(file_path)
+        rgb_im = dp.RGBImage(raw)
+        l_im1 = rgb_im.weighted_average_desaturated()
+        l_im2 = l_im1.apply_contrast_stretching(45, 50)
+        pil_im1 = l_pil_image(l_im1.raw_as_uint8)
+        pil_im2 = l_pil_image(l_im2.raw_as_uint8)
+        # pil_im1.show()
+        # pil_im2.show()
 
 
 if __name__ == "__main__":
