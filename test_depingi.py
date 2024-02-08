@@ -128,8 +128,8 @@ class TestRGBImage(ut.TestCase):
         rgb_im2 = rgb_im1.equalize_histogram()
         pil_im1 = rgb_pil_image(rgb_im1.raw_as_uint8)
         pil_im2 = rgb_pil_image(rgb_im2.raw_as_uint8)
-        pil_im1.show()
-        pil_im2.show()
+        # pil_im1.show()
+        # pil_im2.show()
 
 
 class TestLImage(ut.TestCase):
@@ -161,13 +161,13 @@ class TestLImage(ut.TestCase):
 
     def test_binary_image(self):
         """Take the binary image of an LImage."""
-        file_path = "data/plants.jpg"
+        file_path = "data/car.jpg"
         raw = open_image(file_path)
         rgb_im = dp.RGBImage(raw)
         l_im = rgb_im.weighted_average_desaturated()
-        bin_im = l_im.binary_image(.8)
+        bin_im = l_im.binary_image(l_im.otsu_threshold())
         pil_im = l_pil_image(bin_im.raw_as_uint8)
-        # pil_im.show()
+        pil_im.show()
 
     def test_contrast_stretching(self):
         """Apply contrast stretching to an LImage."""

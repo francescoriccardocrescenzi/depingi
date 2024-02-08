@@ -94,6 +94,11 @@ class Image:
         """Return self.raw as a uint8 array whose values are comprised between 0 and 255."""
         return (self.raw * self._UINT8MAX).astype(np.uint8)
 
+    @property
+    def number_of_pixels(self) -> int:
+        """The number of pixels of the image."""
+        return self.raw.shape[0]*self.raw.shape[1]
+
     # HISTOGRAM
 
     @property
@@ -103,8 +108,7 @@ class Image:
         This method provides the number of bins of the histogram of the image.
         The default bin number is set to sqrt(n_pix), where npix is the number of pixels of the image.
         """
-        n_pix = self.raw.shape[0] * self.raw.shape[1]
-        return int(np.sqrt(n_pix))
+        return int(np.sqrt(self.number_of_pixels))
 
     @abstractmethod
     def histogram(self, bin_number: int = None) -> ImageHistogram:
@@ -205,6 +209,36 @@ class LImage(Image):
         return LImageHistogram(values, bins)
 
     # THRESHOLDING
+
+    def otsu_threshold(self, bin_number: int = None) -> float:
+        """Return the Otsu threshold of the image.
+
+        The Otsu threshold is the threshold that maximizes intra-class variance.
+        """
+        # Assign bin_number directly instead of letting self.histogram handle it because bin_number
+        # will be useful later.
+        if bin_number is None:
+            bin_number = self._histogram_bin_number
+        # Generate the histogram.
+        hist = self.histogram(bin_number)
+        # Compute the cumulative sum and reverse cumulative sum of hist.values.
+        cum_sum = hist.values.cumsum()
+        rev_cum_sum = self.number_of_pixels - cum_sum
+        # Compute the class probabilities.
+        w0 = cum_sum / self.number_of_pixels
+        w1 = 1 - w0
+        # Compute the class means.
+        mu0 = np.zeros(bin_number)
+        mu1 = np.zeros(bin_number)
+        for i in range(0, bin_number):
+            if cum_sum[i] != 0:
+                mu0[i] = np.sum(hist.bins[:i+1] * hist.values[:i+1]) / cum_sum[i]
+            if rev_cum_sum[i] != 0 and i+1 < bin_number:
+                mu1[i] = np.sum(hist.bins[i+1:-1] * hist.values[i+1:]) / rev_cum_sum[i]
+        # Compute the intra-class variance.
+        sigma = w0 * w1 * (mu0 - mu1) ** 2
+        # Return the threshold that maximises it.
+        return hist.bins[np.argmax(sigma)]
 
     def binary_image(self, t: float) -> "LImage":
         """Return the binary image associated with the threshold t.
@@ -343,6 +377,8 @@ class RGBImage(Image):
         """
         if bin_number is None:
             bin_number = self._histogram_bin_number
+        # Apply the equalization to each channel using a helper method and stack the channels together to obtain a
+        # well-formatted new raw image.
         components = [
             self._equalize_histogram_of_raw_luminance_image(self.raw[:, :, i], bin_number)
             for i in range(3)
